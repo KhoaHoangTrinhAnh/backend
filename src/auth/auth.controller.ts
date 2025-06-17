@@ -1,5 +1,5 @@
 // D:\backend\src\auth\auth.controller.ts
-import { Controller, Post, Body, Req, Res, UseGuards, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Body, Req, Res, UseGuards, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt.guard';
@@ -13,29 +13,15 @@ export class AuthController {
     private authService: AuthService,
     private userService: UsersService) {}
 
+    @UseGuards(JwtAuthGuard)
+    @Get('me')
+    getProfile(@Req() req) {
+      return req.user; // user được lấy từ token
+    }
+
     @Post('login')
-    async login(
-      @Body() body: { email: string; password: string },
-      @Res({ passthrough: true }) res: Response
-    ) {
-      const user = await this.authService.validateUser(body.email, body.password);
-      if (!user || !(await compare(body.password, user.password))) {
-        throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
-      }
-
-      const jwt = await this.authService.login(user);
-
-      res.cookie('jwt', jwt, {
-        httpOnly: true,
-        secure: false, // true nếu dùng HTTPS
-        sameSite: 'lax',
-        maxAge: 24 * 60 * 60 * 1000, // 1 ngày
-      });
-
-      return {
-        message: 'Đăng nhập thành công',
-        access_token: jwt,
-      };
+    async login(@Body() body) {
+      return await this.authService.login(body);
     }
 
   @UseGuards(JwtAuthGuard)

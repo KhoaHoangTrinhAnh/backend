@@ -1,3 +1,4 @@
+// D:\backend\src\auth\jwt.guard.ts
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { RedisService } from '../redis/redis.service';

@@ -5,10 +5,12 @@ import { Model } from 'mongoose';
 import { Content, ContentDocument } from './content.schema';
 import { CreateContentDto } from './dto/create-content.dto';
 import { UpdateContentDto } from './dto/update-content.dto';
+import { Block } from './interfaces/block.interface';
 import { BlobServiceClient } from '@azure/storage-blob';
 import { randomUUID } from 'crypto';
 import { extname } from 'path';
 import { ContentGateway } from './content.gateway';
+import { URL } from 'url';
 
 @Injectable()
 export class ContentService {
@@ -16,26 +18,14 @@ export class ContentService {
   private readonly azureContainerName: string;
 
   constructor(
-    @InjectModel(Content.name) private contentModel: Model<ContentDocument>,
+    @InjectModel(Content.name)
+    private contentModel: Model<ContentDocument>,
     private readonly gateway: ContentGateway,
   ) {
     this.blobServiceClient = BlobServiceClient.fromConnectionString(
       process.env.AZURE_STORAGE_CONNECTION_STRING!,
     );
     this.azureContainerName = process.env.AZURE_CONTAINER_NAME!;
-  }
-
-  async create(dto: CreateContentDto, userId: string) {
-  const created = new this.contentModel({
-    ...dto,
-    createdBy: userId,
-    updatedBy: userId,
-    status: 'submitted'
-  });
-    const result = await created.save();
-
-    this.gateway.emitNewContent(result);
-    return result;
   }
 
   async findAll() {
@@ -49,22 +39,96 @@ export class ContentService {
     return content;
   }
 
-  async update(id: string, dto: UpdateContentDto, updatedBy: string) {
-    const content = await this.contentModel.findByIdAndUpdate(
-      id,
-      {
-        ...dto,
-        updated_by: updatedBy,
-        updated_at: new Date(),
-      },
-      { new: true },
-    );
-    if (!content) throw new NotFoundException('Content not found');
-    return content;
+  async create(dto: CreateContentDto, email: string) {
+  const created = new this.contentModel({
+    ...dto,
+    created_by: email,
+    updated_by: email,
+    created_at: new Date(),
+    updated_at: new Date(),
+    status: 'submitted',
+  });
+    const result = await created.save();
+
+    this.gateway.emitNewContent(result);
+    return result;
+  }
+
+async update(id: string, dto: UpdateContentDto, updatedBy: string) {
+  const existing: ContentDocument | null = await this.contentModel.findById(id);
+  if (!existing) throw new NotFoundException('Content not found');
+
+  const oldUrls = (existing.blocks || [])
+    .filter(b => b.type === 'image' || b.type === 'video')
+    .map(b => b.value);
+
+  const newUrls = (dto.blocks || [])
+    .filter(b => b.type === 'image' || b.type === 'video')
+    .map(b => b.value);
+
+  const removedUrls = oldUrls.filter(url => !newUrls.includes(url));
+
+  for (const url of removedUrls) {
+    await this.deleteAzureBlob(url);
+  }
+
+  if (dto.title !== undefined) {
+    existing.title = dto.title;
+  }
+  if (dto.blocks !== undefined) {
+    existing.blocks = dto.blocks;
+  }
+  existing.updated_by = updatedBy;
+  existing.updated_at = new Date();
+
+  const result = await existing.save();
+
+  this.gateway.emitNewContent(result);
+
+  return result;
+}
+
+  private extractMediaUrls(blocks: any[]): string[] {
+    return (blocks || [])
+      .filter(b => b.type === 'image' || b.type === 'video')
+      .map(b => b.value)
+      .filter(url => !!url);
+  }
+
+  private async deleteAzureBlob(fileUrl: string) {
+    try {
+      const url = new URL(fileUrl);
+      const fullPath = decodeURIComponent(url.pathname.replace(/^\/+/, '')); // image-video/images/abc.jpg
+      const containerName = this.azureContainerName; // image-video
+
+      // Cắt bỏ phần "image-video/" để chỉ còn "images/abc.jpg"
+      const blobPath = fullPath.startsWith(containerName + '/')
+        ? fullPath.substring(containerName.length + 1)
+        : fullPath;
+
+      const containerClient = this.blobServiceClient.getContainerClient(containerName);
+      const blobClient = containerClient.getBlockBlobClient(blobPath);
+
+      await blobClient.deleteIfExists();
+      console.log(`Deleted blob: ${blobPath}`);
+    } catch (err) {
+      console.error(`Failed to delete blob: ${fileUrl}`, err.message);
+    }
   }
 
   async delete(id: string) {
-    return this.contentModel.findByIdAndDelete(id);
+    const deleted = await this.contentModel.findByIdAndDelete(id);
+    if (!deleted) throw new NotFoundException('Content not found');
+
+    // Xoá media trong Azure Blob
+    const mediaUrls = this.extractMediaUrls(deleted.blocks);
+    for (const url of mediaUrls) {
+      await this.deleteAzureBlob(url);
+    }
+
+    // Emit sự kiện xoá content về client (realtime)
+    this.gateway.server.emit('deleteContent', { id });
+    return deleted;
   }
 
   async submit(id: string, updatedBy: string) {
@@ -91,4 +155,5 @@ export class ContentService {
 
     return blockBlobClient.url;
   }
+
 }

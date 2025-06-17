@@ -1,3 +1,4 @@
+// D:\backend\src\auth\auth.module.ts
 import { forwardRef, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthService } from './auth.service';

@@ -1,9 +1,11 @@
+// D:\backend\src\auth\auth.service.ts
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/user.service';
 import { RedisService } from '../redis/redis.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { User } from '../types/user.interface';
 
 @Injectable()
 export class AuthService {
@@ -13,21 +15,33 @@ export class AuthService {
     private redisService: RedisService,
   ) {}
 
-  async validateUser(email: string, password: string) {
-    const user = await this.userService.findByEmail(email);
-    console.log('Found user:', user); // Debug 
-    if (user && await bcrypt.compare(password, user.password)) {
-      return user;
-    }
-    throw new UnauthorizedException('Invalid credentials');
-  }
+async validateUser(email: string, password: string): Promise<User> {
+  const user = await this.userService.findByEmail(email);
+  if (!user) throw new UnauthorizedException('Tài khoản không tồn tại');
 
-  async login(user: any) {
-    const payload = { email: user.email, sub: user._id, role: user.role };
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) throw new UnauthorizedException('Sai mật khẩu');
+
+  return user as unknown as User; // nếu TypeScript vẫn cảnh báo, ép kiểu thủ công
+}
+
+  async login(body: { email: string; password: string }) {
+    const { email, password } = body;
+
+    const user = await this.validateUser(email, password);
+
+    const payload = {
+      email: user.email,
+      sub: user._id.toString(),
+      role: user.role,
+    };
+
     const token = this.jwtService.sign(payload);
     await this.redisService.set(token, user._id.toString());
+
     return { access_token: token };
   }
+
 
   async logout(token: string) {
   await this.redisService.del(token);

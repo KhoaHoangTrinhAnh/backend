@@ -1,5 +1,7 @@
-import { IsString, IsNotEmpty, IsArray, ValidateNested } from 'class-validator';
+// D:\backend\src\content\dto\create-content.dto.ts
+import { IsString, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+import { Block } from '../interfaces/block.interface';
 
 class BlockDto {
   @IsString()
@@ -11,11 +13,10 @@ class BlockDto {
 
 export class CreateContentDto {
   @IsString()
-  @IsNotEmpty()
   title: string;
 
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => BlockDto)
-  blocks: BlockDto[];
+  blocks: Block[];
 }
