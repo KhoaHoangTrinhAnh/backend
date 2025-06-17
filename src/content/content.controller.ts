@@ -22,7 +22,7 @@ export class ContentController {
   ) {}
 
 @Get()
-@Roles('admin', 'editor')
+@Roles('admin', 'editor', 'client')
 findAll() {
   return this.contentService.findAll();
 }
@@ -60,7 +60,7 @@ async update(
 }
 
 @Patch(':id/submit')
-@Roles('editor')
+@Roles('admin', 'editor')
 async submit(@Param('id') id: string, @Req() req) {
   const userId = req.user.sub;
   const content = await this.contentService.submit(id, userId);
@@ -69,12 +69,13 @@ async submit(@Param('id') id: string, @Req() req) {
 }
 
 @Delete(':id')
-@Roles('admin')
+@Roles('admin', 'editor')
 async delete(@Param('id') id: string) {
   return this.contentService.delete(id);
 }
 
 @Post("upload")
+@Roles('admin', 'editor')
 @UseInterceptors(FileInterceptor("file"))
 async uploadFile(
   @UploadedFile() file: Express.Multer.File,

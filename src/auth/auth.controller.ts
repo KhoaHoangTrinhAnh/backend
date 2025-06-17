@@ -16,7 +16,7 @@ export class AuthController {
     @UseGuards(JwtAuthGuard)
     @Get('me')
     getProfile(@Req() req) {
-      return req.user; // user được lấy từ token
+      return req.user;
     }
 
     @Post('login')
