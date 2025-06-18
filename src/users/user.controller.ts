@@ -8,8 +8,11 @@ import { User } from './user.schema';
 import { Request } from 'express';
 
 interface SafeRequest extends Request {
-  user?: {
-    email?: string;
+  user: {
+    email: string;
+    sub: string;
+    name: string;
+    role: string;
   };
 }
 
