@@ -4,12 +4,18 @@ import { UsersService } from './user.service';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { UpdateUserDto } from '../auth/dto/update-user.dto';
+import { User } from './user.schema';
 import { Request } from 'express';
+
+interface SafeRequest extends Request {
+  user?: {
+    email?: string;
+  };
+}
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
-// @Roles('admin') tạm vô hiệu hoá để sửa code
+@Roles('admin')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -24,14 +30,14 @@ export class UsersController {
   }
 
   @Post()
-  create(@Body() body: any, @Req() req: Request) {
-    const created_by = req.user?.['email'];
+  create(@Body() body: Partial<User>, @Req() req: SafeRequest) {
+    const created_by = req.user?.email;
     return this.usersService.create({ ...body, created_by });
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() body: any, @Req() req: Request) {
-    const updated_by = req.user?.['email'];
+  update(@Param('id') id: string, @Body() body: Partial<User>, @Req() req: SafeRequest) {
+    const updated_by = req.user?.email;
     return this.usersService.update(id, { ...body, updated_by });
   }
 

@@ -14,12 +14,12 @@ export class UsersService {
     private readonly usersGateway: UsersGateway,
   ) {}
 
-  async findAll(): Promise<User[]> {
-    return this.userModel.find().select('-password'); // ẩn password trả về frontend
+  async findAll(): Promise<Partial<User>[]> {
+    return this.userModel.find().select('-password');
   }
 
-  async findById(id: string): Promise<User | null> {
-    return this.userModel.findById(id).select('-password'); // ẩn password trả về frontend
+  async findById(id: string): Promise<Partial<User> | null> {
+    return this.userModel.findById(id).select('-password');
   }
 
   async findByName(name: string) {
@@ -30,8 +30,9 @@ export class UsersService {
     return this.userModel.findOne({ email });
   }
 
-  async create(userDto: any): Promise<User> {
-    const hashed = await bcrypt.hash(userDto.password, 10);
+  async create(userDto: Partial<User>): Promise<User> {
+    const password = userDto.password ?? '';
+    const hashed = await bcrypt.hash(password, 10);
     const created = await this.userModel.create({
       ...userDto,
       password: hashed,
@@ -47,8 +48,8 @@ export class UsersService {
     return this.userModel.findByIdAndDelete(id);
   }
 
-  async update(id: string, updateUserDto: any): Promise<User | null> {
-    const updateData: any = {
+  async update(id: string, updateUserDto: Partial<User>): Promise<User | null> {
+    const updateData: Partial<User> = {
       ...updateUserDto,
       updated_at: new Date(),
       updated_by: updateUserDto.updated_by,
@@ -61,7 +62,5 @@ export class UsersService {
     const updated = await this.userModel.findByIdAndUpdate(id, updateData, { new: true });
     this.usersGateway.emitUserUpdate();
     return updated;
-}
-
-
+  }
 }

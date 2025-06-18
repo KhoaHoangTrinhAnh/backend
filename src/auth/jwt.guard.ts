@@ -13,13 +13,15 @@ export class JwtAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
     const token = req.headers.authorization?.split(' ')[1];
+
     if (!token) return false;
 
     const valid = await this.redisService.get(token);
     if (!valid) return false;
 
     try {
-      const payload = this.jwtService.verify(token);
+      const payload = this.jwtService.verify(token, { ignoreExpiration: false });
+
       req.user = payload;
       return true;
     } catch {

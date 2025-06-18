@@ -1,11 +1,11 @@
 // D:\backend\src\auth\auth.controller.ts
-import { Controller, Post, Get, Body, Req, Res, UseGuards, UnauthorizedException, BadRequestException } from '@nestjs/common';
-import { Response } from 'express';
+import { Controller, Post, Get, Body, Req, UseGuards, BadRequestException } from '@nestjs/common';
+import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt.guard';
 import { CreateUserDto } from './dto/create-user.dto';
-import { compare } from 'bcrypt';
 import { UsersService } from '../users/user.service';
+import { LoginDto } from './dto/login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -15,19 +15,20 @@ export class AuthController {
 
     @UseGuards(JwtAuthGuard)
     @Get('me')
-    getProfile(@Req() req) {
+    getProfile(@Req() req: Request) {
       return req.user;
     }
 
     @Post('login')
-    async login(@Body() body) {
+    async login(@Body() body: LoginDto) {
       return await this.authService.login(body);
     }
 
   @UseGuards(JwtAuthGuard)
   @Post('logout')
-  async logout(@Req() req) {
+  async logout(@Req() req: Request) {
     const token = req.headers.authorization?.split(' ')[1];
+    if (!token) throw new BadRequestException('Token không tồn tại');
     return this.authService.logout(token);
   }
 

@@ -1,14 +1,13 @@
 // D:\backend\src\upload\upload.service.ts
 import { Injectable} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BlobServiceClient } from '@azure/storage-blob';
-import { v4 as uuid } from 'uuid';
+import { BlobServiceClient, ContainerClient  } from '@azure/storage-blob';
 
 
 @Injectable()
 export class UploadService {
   private blobServiceClient: BlobServiceClient;
-  private containerClient;
+  private containerClient: ContainerClient;
 
   constructor(private configService: ConfigService) {
     const account = this.configService.get<string>('AZURE_STORAGE_ACCOUNT');

@@ -11,7 +11,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Express } from 'express';
 import { randomUUID } from 'crypto';
 import { extname } from 'path';
-
+import { Request } from 'express';
 
 @Controller('contents')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -20,6 +20,7 @@ export class ContentController {
     private readonly contentService: ContentService,
     private contentGateway: ContentGateway,
   ) {}
+req: Request & { user?: { email?: string; sub?: string } }
 
 @Get()
 @Roles('admin', 'editor', 'client')
@@ -35,34 +36,30 @@ findOne(@Param('id') id: string) {
 
 @Post()
 @Roles('admin', 'editor')
-async create(@Body() dto: CreateContentDto, @Req() req) {
-  const userEmail = req.user?.email;
+async create(@Body() dto: CreateContentDto, @Req() req: Request & { user?: { email?: string } }) {
+  const userEmail = req.user?.email ?? 'unknown';
   const created = await this.contentService.create(dto, userEmail);
-
   this.contentGateway.server.emit('newContent', created);
-
   return created;
 }
 
 @Put(':id')
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin', 'editor')
 async update(
   @Param('id') id: string,
   @Body() updateContentDto: UpdateContentDto,
-  @Req() req
+  @Req() req: Request & { user?: { sub?: string } }
 ) {
-  const updated = await this.contentService.update(id, updateContentDto, req.user.sub);
-
+  const updatedBy = req.user?.sub ?? 'unknown';
+  const updated = await this.contentService.update(id, updateContentDto, updatedBy);
   this.contentGateway.server.emit('updateContent', updated);
-
   return updated;
 }
 
 @Patch(':id/submit')
 @Roles('admin', 'editor')
-async submit(@Param('id') id: string, @Req() req) {
-  const userId = req.user.sub;
+async submit(@Param('id') id: string, @Req() req: Request & { user?: { sub?: string } }) {
+  const userId = req.user?.sub ?? 'unknown';
   const content = await this.contentService.submit(id, userId);
   this.contentGateway.emitNewContent(content);
   return content;

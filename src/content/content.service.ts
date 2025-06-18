@@ -5,10 +5,7 @@ import { Model } from 'mongoose';
 import { Content, ContentDocument } from './content.schema';
 import { CreateContentDto } from './dto/create-content.dto';
 import { UpdateContentDto } from './dto/update-content.dto';
-import { Block } from './interfaces/block.interface';
 import { BlobServiceClient } from '@azure/storage-blob';
-import { randomUUID } from 'crypto';
-import { extname } from 'path';
 import { ContentGateway } from './content.gateway';
 import { URL } from 'url';
 
@@ -88,12 +85,23 @@ async update(id: string, dto: UpdateContentDto, updatedBy: string) {
   return result;
 }
 
-  private extractMediaUrls(blocks: any[]): string[] {
-    return (blocks || [])
-      .filter(b => b.type === 'image' || b.type === 'video')
-      .map(b => b.value)
-      .filter(url => !!url);
-  }
+private extractMediaUrls(blocks: unknown[]): string[] {
+  if (!Array.isArray(blocks)) return [];
+
+  return blocks
+    .filter((b): b is { type: string; value: string } =>
+      typeof b === 'object' &&
+      b !== null &&
+      'type' in b &&
+      'value' in b &&
+      (b as any).type &&
+      (b as any).value &&
+      (typeof (b as any).type === 'string') &&
+      (typeof (b as any).value === 'string')
+    )
+    .filter(b => b.type === 'image' || b.type === 'video')
+    .map(b => b.value);
+}
 
   private async deleteAzureBlob(fileUrl: string) {
     try {
