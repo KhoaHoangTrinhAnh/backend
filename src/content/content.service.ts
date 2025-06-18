@@ -7,6 +7,7 @@ import { CreateContentDto } from './dto/create-content.dto';
 import { UpdateContentDto } from './dto/update-content.dto';
 import { BlobServiceClient } from '@azure/storage-blob';
 import { ContentGateway } from './content.gateway';
+import { Block } from './interfaces/block.interface';
 import { URL } from 'url';
 
 @Injectable()
@@ -85,20 +86,8 @@ async update(id: string, dto: UpdateContentDto, updatedBy: string) {
   return result;
 }
 
-private extractMediaUrls(blocks: unknown[]): string[] {
-  if (!Array.isArray(blocks)) return [];
-
+private extractMediaUrls(blocks: Block[] = []): string[] {
   return blocks
-    .filter((b): b is { type: string; value: string } =>
-      typeof b === 'object' &&
-      b !== null &&
-      'type' in b &&
-      'value' in b &&
-      (b as any).type &&
-      (b as any).value &&
-      (typeof (b as any).type === 'string') &&
-      (typeof (b as any).value === 'string')
-    )
     .filter(b => b.type === 'image' || b.type === 'video')
     .map(b => b.value);
 }
@@ -120,7 +109,11 @@ private extractMediaUrls(blocks: unknown[]): string[] {
       await blobClient.deleteIfExists();
       console.log(`Deleted blob: ${blobPath}`);
     } catch (err) {
-      console.error(`Failed to delete blob: ${fileUrl}`, err.message);
+      if (err instanceof Error) {
+        console.error(`Failed to delete blob: ${fileUrl}`, err.message);
+      } else {
+        console.error(`Failed to delete blob: ${fileUrl}`, err);
+      }
     }
   }
 
@@ -128,8 +121,7 @@ private extractMediaUrls(blocks: unknown[]): string[] {
     const deleted = await this.contentModel.findByIdAndDelete(id);
     if (!deleted) throw new NotFoundException('Content not found');
 
-    // Xoá media trong Azure Blob
-    const mediaUrls = this.extractMediaUrls(deleted.blocks);
+    const mediaUrls = this.extractMediaUrls(deleted.blocks as Block[]);
     for (const url of mediaUrls) {
       await this.deleteAzureBlob(url);
     }
