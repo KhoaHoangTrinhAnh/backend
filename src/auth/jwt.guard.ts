@@ -4,6 +4,14 @@ import { JwtService } from '@nestjs/jwt';
 import { RedisService } from '../redis/redis.service';
 import { Request } from 'express';
 
+interface JwtPayload {
+  sub: string;
+  email: string;
+  name: string;
+  role: string;
+}
+
+
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
@@ -24,11 +32,12 @@ export class JwtAuthGuard implements CanActivate {
     if (!valid) return false;
 
     try {
-      const payload = this.jwtService.verify(token, {
+      const payload = this.jwtService.verify<JwtPayload>(token, {
         ignoreExpiration: false,
       });
 
-      (req as any).user = payload;
+
+      req.user = payload;
       return true;
     } catch {
       return false;
